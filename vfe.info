@@ -1,0 +1,10 @@
+name = Vfe
+description = Views form element module for ....
+core = 7.x
+package = vfe
+
+;Dependencies
+dependencies[] = views
+
+;Config
+configure = admin/config/workflow/vfe

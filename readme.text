@@ -1,0 +1,57 @@
+entityrefrence.info
+	files[] = pathto/views.inc
+	files[] = views/entityreference_plugin_display.inc
+	files[] = views/entityreference_plugin_style.inc
+	files[] = views/entityreference_plugin_row_fields.inc
+views_rules.info
+	files[] = views/views_rules_plugin_display_rules.inc
+
+=================================================================
+
+views_rules->   hook_views_api, hook_views_plugins
+
+/**
+ * Implements hook_views_api().
+ */
+function views_rules_views_api() {
+  return array(
+    'version' => '3.0',
+  );
+}
+
+/**
+ * Implements hook_views_plugins().
+ */
+function views_rules_views_plugins() {
+  return array(
+    'display' => array(
+      'views_rules' => array(
+        'title' => t('Rules'),
+        'help' => t('Provide a display for using results in Rules.'),
+        'handler' => 'views_rules_plugin_display_rules',
+        'theme' => 'views_view',
+        'uses hook menu' => FALSE,
+        'uses fields' => TRUE,
+        'accept attachments' => FALSE,
+        'admin' => t('Rules'),
+        'rules iterator' => TRUE,
+      ),
+    ),
+  );
+}
+
+
+
+
+
+entity_rules->
+
+/**
+ * Implements hook_views_api().
+ */
+function entityreference_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'entityreference') . '/views',
+  );
+}

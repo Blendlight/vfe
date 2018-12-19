@@ -1,0 +1,291 @@
+<?php
+
+
+/*
+implements hook_menu
+*/
+function vfe_menu()
+{
+    $menus['admin/config/workflow/vfe'] = array(
+        'title' => 'Views field elements',
+        'page callback' => 'vfe_config_page',
+        'description' => 'Control how fields are shown based on views',
+        'access arguments' => array(true)
+    );
+
+    $menus['ajax/%ctools_js/vfe/modal/field/%/%'] = array(
+        "title"           => "Edit field",
+        "page callback"   => "ajax_modal_vfe_field_page",
+        "access callback" => TRUE,
+        "page arguments"  => array(1, 5, 6),
+        //        'file'=>'includes/pages.modal_vfe_field.inc',
+    );
+
+    $menus['vfe/testform'] = array(
+        'title'           => 'Form for testing vfe',
+        'page callback'   => 'apple_callback',
+        'access callback' => TRUE
+    );
+
+    return $menus;
+}
+
+function apple_callback()
+{
+    $output = array();
+
+    $output['form'] = drupal_get_form("apple_form");
+    return $output;
+}
+
+function apple_form($form, &$form_state)
+{
+    $form = [];
+
+    $form['name'] = [
+        '#title' => 'Enter your name',
+        '#type' => 'textfield',
+    ];
+    
+    $form['friend'] = [
+        '#title' => 'Select your friend',
+        '#type' => 'textfield',
+    ];
+    
+    $form['action'] = [
+        '#type' => 'submit',
+        '#value' => 'Submit'
+    ];
+    
+//    $form['friend'] = [
+//        '#title' => 'Select your friend',
+//        '#type' => 'textfield',
+//    ];
+
+    return $form;
+}
+
+function vfe_config_page()
+{
+    $output = [];
+
+    $functions = variable_get('vfe_forms');
+
+    $rows = [];
+
+    if($functions)
+    {
+        foreach($functions as $function)
+        {
+            $rows[] = array($function, 'delete button');
+        }
+    }
+
+    $output['t'] = array(
+        '#theme'   => 'table',
+        '#header' => ['function', 'action'],
+        '#rows'   => $rows,
+        '#empty' => 'No functions are added'
+    );
+
+    $output['form'] = drupal_get_form('vfe_config_form');
+    return $output;
+}
+
+function vfe_config_form($form, &$form_state)
+{
+
+    $form['title'] = array(
+        '#markup'=>'Add function'
+    );
+
+    $form['name'] = array(
+        '#type' => 'textfield',
+        '#name' => 'name',
+    );
+    $form['button'] = array(
+        '#type'=>'submit',
+        '#value'=>'Save'
+    );
+
+    return $form;
+}
+
+function vfe_config_form_submit(&$form, &$form_state)
+{
+    $functions = variable_get('vfe_forms');
+    $function = $form_state['values']['name'];
+    if(!$functions)
+    {
+        $functions = [];
+    }
+
+    if(! in_array($function, $functions))
+    {
+        $functions[] = $function;
+        variable_set('vfe_forms', $functions);
+        drupal_set_message($function." is saved");
+    }else{
+        form_set_error('name', "Already exists");
+    }
+
+
+
+}
+
+
+function vfe_form_alter(&$form, &$form_state, $form_id)
+{
+    //    dsm($form_id."
+    //this message shown from vfe_form_alter");
+    dsm($form);
+
+
+
+
+
+    $functions = variable_get('vfe_forms');
+
+    if($functions)
+    {
+        if(in_array($form_id, $functions))
+        {
+            drupal_set_message("This form is added to vfe");
+
+            //include ctools
+            ctools_include('modal');
+            ctools_include('ajax');
+
+
+            ctools_modal_add_js();
+
+            //element_children show only child not starting with#
+
+            $filed_names = element_children($form);
+
+            foreach($filed_names as $field_name)
+            {
+                /* //ignore below 
+                if(in_array($field_name, array(
+                    'form_id',
+                    'form_token',
+                    'actions',
+                    'additional_settings',
+
+                ))){
+                    continue;
+                }*/
+
+                //ignore markup
+                if(isset($form[$field_name]['#markup']) && !isset($form[$field_name]['#type']))
+                {
+                    continue;
+                }
+
+
+                //ignore this type of elements
+                if( isset($form[$field_name]['#type']) && in_array($form[$field_name]['#type'], ['hidden', 'token', 'actions', 'markup', 'submit']) )
+                {
+                    continue;
+                }
+
+
+                $link = ctools_modal_text_button($field_name." edit", "ajax/nojs/vfe/modal/field/$form_id/$field_name", "alt");
+
+                $form[$field_name]['#suffix'] = $link;
+
+
+            }
+        }
+    }
+
+
+}
+
+function ajax_modal_vfe_field_page($js = NULL, $form_id, $field_name)
+{
+    global $variables;
+
+    if($js){
+        ctools_include('ajax');
+        ctools_include('modal');
+
+        $title = 'Field '.$field_name;
+
+
+        $build['messages'] = array(
+            '#markup' => theme_status_messages($variables)
+        );
+        
+        $build[] = array(
+            "#markup" => 'Formid = '.$form_id.'<br/>Field_name = '.$field_name,
+        );
+
+        $form = drupal_get_form('vfe_field_edit_form', $form_id, $field_name);
+        $build[] = array(
+            "#markup" => render($form)
+        );
+
+        $output = render($build);
+
+        ctools_modal_render($title, $output);
+    }
+}
+
+function vfe_field_edit_form($form, &$from_state, $form_id, $field_name)
+{
+    $form = [];
+    $form['help'] = array(
+        '#prefix' => '<h1>',
+        '#markup' => "<small><small><small>VFE Settings for</small></small></small> $field_name<small><small><small> in </small></small></small>$form_id",
+        '#suffix' => '</h1>',
+    );
+
+
+
+
+    $form['in_vfe'] = [
+        '#type' => 'checkbox',
+        '#title' => 'Activate',        
+    ];
+
+    $form['view'] = [
+        '#type' => 'select',
+        '#title' => 'View',
+        '#options' => array(
+            "" => "None",
+            "view1"=>'view1'
+        ),
+    ];
+
+
+    $form['submit'] = [
+
+        '#type'=>"submit",
+        '#value'=>'Save'
+    ];
+
+    return $form;
+}
+
+function vfe_field_edit_form_submit($form, &$form_state)
+{
+    dsm(func_get_args());
+}
+
+/*
+
+function hook_field_widget_form_alter(&$element, &$form_state, $context) {
+
+  // Add a css class to widget form elements for all fields of type mytype.
+  if ($context['field']['type'] == 'mytype') {
+
+    // Be sure not to overwrite existing attributes.
+    $element['#attributes']['class'][] = 'myclass';
+  }
+}
+*/
+
+
+
+
